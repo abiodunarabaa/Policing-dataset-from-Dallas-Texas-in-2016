@@ -1,0 +1,547 @@
+---
+title: "2016 Dallas Police Dataset Analysis"
+author: "Abiodun Araba"
+date: "2023-04-02"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+#loading of the 2016 police dallas dataset
+
+df <- read.csv("37-00049_UOF-P_2016_prepped.csv", 
+                      header = TRUE, colClasses = "factor", skip = 1)
+
+#installing some important packages
+#install.packages("data.table")
+#install.packages("leaflet")
+#install.packages("forcats")
+#install.packages("lubridate")
+#install.packages("devtools")
+
+
+#importing the required libraries
+library(leaflet)
+library(ggplot2)
+library(forcats)
+library(plyr)
+library(dplyr)
+library(plotly)
+library(data.table)
+library(htmlwidgets)
+library(lubridate)
+library(devtools)
+
+
+```
+
+### INTRODUCTION
+
+Effective policing is critical for crime prevention and public safety. Understanding patterns in prior crime and policing data can help with successful policing and crime prevention. Crime rates have been rising all throughout the world. Understanding how crimes occur is one technique to regulate and limit the amount of crimes in this environment.
+
+Effective police entails not only lowering crime but also being impartial and making all people feel safe, regardless of race or ethnicity. It is critical to comprehend any patterns in crime and policing.In the way offences are committed, specific patterns can often be seen based on the type of crime, time, or location. As a result, analysing any such trends from previous data is quite valuable.
+
+This report reviews several trends in crime and policing in the city of Dallas. The analysis of crime reported by the police in various areas, on various days and times of the day. Furthermore, patterns in the racial distribution of offenders are noticed. The analyses' goal is to discover patterns that will assist make policing more effective in combating crime in the future.
+
+$$\\[1in]$$
+
+### EXPLORATORY DATA ANALYSIS
+
+This reports makes use of crime and policing statistics from Dallas in 2016. The dataset includes information about the subjects, crimes, and police officers who responded to the incident. It also provides information about the incident's location and timing. All of this precise information, when combined, aids in the analysis of crime and policing trends in Dallas. $$\\[1in]$$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+#summary(df)
+#head(df)
+str(df)
+
+
+#class of latitude and longitude variables is factor, hence coercing them to numeric without loss of any information
+df$Longitude<-as.numeric(levels(df$Longitude))[df$Longitude]
+df$Latitude<-as.numeric(levels(df$Latitude))[df$Latitude]
+
+
+```
+
+This output indicates the 37-00049_UOF-P_2016_prepped.A csv file contains 2383 observations and 47 variables. The result also gives us the type of each variable (all variables are Factor in this dataset) and the levels of the factor variables.
+
+$$\\[1in]$$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Two-way table by offense type and year
+table(df$DIVISION, df$OffRace)
+
+```
+
+According to the above table, the Central division has the most officers (563 total, 366 of them are White), while the Southwest division has the fewest (297).
+
+$$\\[1in]$$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Bar plot of crime incidents by Subject Gender
+ggplot(df, aes(x = CitSex)) +
+  geom_bar(fill = "#84aee2") +
+  theme_minimal() +
+  labs(title = "Figure 1: The Crime Incidents by Offense Type", x = "Subject Gender", y = "Count") +
+  theme_minimal(base_size = 10)+
+  theme(plot.title = element_text(hjust = 0.6))
+
+
+```
+
+Figure 1 reveals that male offenders have the highest count (1932), while female offenders have 440. However, there are 11 subjects with the gender Null/Unknown.
+
+```{r,warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+
+
+```
+
+$$\\[1in]$$
+
+```{r, echo=FALSE, fig.height=5, fig.width= 9, message=FALSE, warning=FALSE}
+
+#Using bar-plot to depict the count of incidents in each division
+incidents_division<-df%>%ggplot(aes(x = DIVISION)) + 
+  geom_bar(fill="#466cc1") + 
+  coord_flip() +
+  theme_minimal()+
+  labs(title="Figure 2: The count of incidents per division",x = "Division", y = "Count of Incidents")+ 
+  theme_minimal(base_size = 11)+
+  theme(plot.title = element_text(hjust = 0.6))
+
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(incidents_division)
+```
+
+According to the data, the locations of incidents in Dallas are divided into seven categories: Central, North Central, South Central, Northeast, Northwest, Southeast, and Southwest.The Central region has registered 563 instances. The remaining divisions have almost the same amount of instances, within the range of 191 to 362. It's interesting to note how the number of incidences varies throughout divisions. Having discovered this trend, understanding whether these variances are random or related to a specific cause would assist police in addressing the problem of a high number of events in Central and Southeast.
+
+$$\\[1in]$$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+#Using map to depict the number of crimes reported by Dallas Police in 2016 based on the locations
+
+crime_Overview_map<-df%>%leaflet()%>% addTiles()%>%addMarkers(
+  clusterOptions = markerClusterOptions())
+
+crime_Overview_map
+
+```
+
+The chart above depicts the number of occurrences reported in different areas of Dallas in 2016. It clearly illustrates incident clusters across diverse geographies. As we zoom in, it provides a more exact number of incidences for smaller regions, such as each street. This provides a detailed breakdown of the number of police occurrences on each street in Dallas.
+
+$$\\[1in]$$
+
+```{r,warning=FALSE, echo=FALSE, message=FALSE}
+#Using map to depict the crime in various divisions in Dallas
+crime_division <- leaflet(df)%>%
+  
+  addTiles(group = "OSM") %>%
+  addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite")
+
+crime_division <- crime_division%>% addCircles(data = df[df$DIVISION=="CENTRAL",], 
+                                           group = "CENTRAL",col="#74aee2")%>%
+  addCircles(data = df[df$DIVISION=="NORTH CENTRAL",],
+             group = "NORTH CENTRAL",col="#e0f3f8")%>%
+  addCircles(data = df[df$DIVISION=="NORTHEAST",],
+             group = "NORTHEAST",col="#f46d50")%>%
+  addCircles(data = df[df$DIVISION=="NORTHWEST",],
+             group = "NORTHWEST",col="#abd9e5")%>%
+  addCircles(data = df[df$DIVISION=="SOUTH CENTRAL",],
+             group = "SOUTH CENTRAL",col="#ffffdf")%>%
+  addCircles(data = df[df$DIVISION=="SOUTHEAST",],
+             group = "SOUTHEAST",col="#d75088")%>%
+  addCircles(data = df[df$DIVISION=="SOUTHWEST",],
+             group = "SOUTHWEST",col="#4575b4")
+
+#the control layers 
+crime_division<-crime_division%>%addLayersControl(
+  baseGroups = c("Toner Lite","OSM"),
+  overlayGroups = c("SOUTH CENTRAL","SOUTHEAST","SOUTHWEST","NORTH CENTRAL","NORTHEAST","NORTHWEST","CENTRAL"
+                    ),
+  options = layersControlOptions(collapsed = FALSE))
+
+#Displaying the output
+crime_division
+```
+
+In addition, reviewing the number of occurrences reported by police on different days of the week in 2016. The data about the weekday is derived from the date of the incidents(INCIDENT_DATE).
+
+$$\\[1in]$$
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+#incidents on different days of the week and formatting date using day, month and year
+df$OCCURRED_D <- parse_date_time(x = df$OCCURRED_D, orders = c("d B Y", "d m y", "m/d/y"))
+
+#extracting weekday from date column
+df$dayOftheWeek <- weekdays(df$OCCURRED_D)
+
+#plotting of incidents based on each day of the week
+Incidentcount_day <- df %>%
+  mutate(dayOftheWeek = fct_relevel(dayOftheWeek, 
+                                    "Sunday", "Monday", "Tuesday", 
+                                    "Wednesday", "Thursday", "Friday", "Saturday")) %>%
+  ggplot(aes(x = dayOftheWeek)) + 
+  geom_bar(fill = "#966db2") +
+  labs(title = "Figure 3: The count of incidents per day", y = "Number of Incidents", x = "Day of the Week") + 
+  theme_minimal(base_size = 12) + theme(plot.title = element_text(hjust = 0.6)) +
+  coord_flip()
+
+#using ggplotly to convert the output to an interactive plot
+ggplotly(Incidentcount_day)
+
+```
+
+Figure 3 depicts the number of events on different days of the week. Sundays have 428 incidents, the most of any day. Saturdays are followed by 393 incidents. Mondays and Wednesdays, on the other hand, had the fewest incidences, with 274 and 286 instances, respectively. $$\\[1in]$$
+
+```{r,warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+# The proportion of incidents on each day of the week per division
+incident_dayofweek <- setDT(df)[, .(count = .N), by = .(DIVISION, dayOftheWeek)][, .(dayOftheWeek = dayOftheWeek, 
+                                                                                        count = count,
+                                                                                        percent = paste0(formatC(count*100/sum(count), digits = 2), "%"),
+                                                                                        percent_num = count/sum(count)), by = DIVISION]
+
+# Stacked bar plot
+incident_dayofweek_plot <- ggplot(incident_dayofweek, aes(x = DIVISION, y = percent_num, fill = dayOftheWeek)) +
+  geom_bar(position = position_fill(), stat = "identity", width = 0.6) +
+  labs(title = "Figure 4: The proportion of incidents on each day per division", x = "Division", y = "Proportion", fill = "Day") +
+  geom_text(aes(label = percent), position = position_fill(vjust = 0.6), size = 2) +
+  theme_minimal(base_size = 11) +
+  coord_flip()
+
+# Interactive plot using ggplotly
+ggplotly(incident_dayofweek_plot)
+
+
+```
+
+Figure 4 depicts the proportion of events on various days in each division of Dallas. There are no obvious strange patterns in this visualisation. On different days of the week, the pattern of incidents occuring throughout the division is nearly same. Furthermore, as previously reported, the proportion of occurrences recorded is high on Sundays, but only in the North Central, Southeast, and Southwest. On the other side, more cases are reported on Thursdays in the South Central and Northwest. Central had more cases on Saturday, while the Northeast had more on Friday. However, no substantial variations exist between these instances on various days or divisions. $$\\[1in]$$
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+# the crimes reported during each parts of the day 
+# The time formatting
+df$time <- format(strptime(df$OCCURRED_T, "%I:%M:%S %p"), "%H:%M:%S")
+# converting the time to categorical data
+time <- as.POSIXct(strptime((df$time), "%H:%M:%S"), "UTC")
+
+x <- as.POSIXct(strptime(c("050000", "115959", "120000", "165959", "170000", "205959", "210000", "045959"), "%H%M%S"), "UTC")
+df$Partsofday <- case_when(
+  between(time, x[1], x[2]) ~ "Morning",
+  between(time, x[3], x[4]) ~ "Afternoon",
+  between(time, x[5], x[6]) ~ "Evening",
+  TRUE ~ "Night"
+)
+
+# plotting chat
+count_parts_of_day <- df %>%
+  mutate(Partsofday = fct_relevel(Partsofday, "Morning", "Afternoon", "Evening", "Night")) %>%
+  ggplot(aes(x = Partsofday)) + 
+  geom_bar(fill = "#657de1") +
+  labs(title = "Figure 5: Count of incidents per part of the day", x = "Parts of the day", y = "Count of Incidents") +
+  theme_minimal(base_size = 10) +
+  coord_flip()
+
+# then, using ggplotly to convert the output to an interactive plot
+ggplotly(count_parts_of_day)
+
+
+```
+
+The figure 5 depicts the frequency of crimes and police incidents might vary depending on the time of day. We will look into the number of events reported by the police at various times of the day. For this examination, we will look at the morning, afternoon, evening, and night periods of the day. The parts of the day were determined based on the times of the incidents, with 5AM to 11:59AM deemed "Morning," 12PM to 4:59PM considered "Afternoon," 5PM to 8:59PM considered "Evening," and 9PM to 4:59AM considered "Night." Figure 4 shows that the number of events was highest at night and lowest in the morning, with 997 and 299 instances, respectively. The number of events in a day appears to have gradually climbed from morning to night, with the biggest number occurring at night.
+
+$$\\[1in]$$
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+#The crime on different parts of the day in each division
+partsofday_division <- setDT(df, )[,list(count = .N), by = .(DIVISION,Partsofday)][,list(Partsofday = Partsofday, 
+                                                                                                    count = count,
+                                                                                                    percent = paste0(formatC(count*100/sum(count), digits = 2), "%"),
+                                                                                                    percent_num = count/sum(count)), by = DIVISION]
+
+
+#plotting
+partsofday_division<-ggplot(partsofday_division, aes(x = DIVISION, y = percent_num, fill = Partsofday))+
+  geom_bar(position = position_fill(),stat = "identity",width = 0.5)+
+  labs(title="Figure 6: The proportion of incidents on each parts of the day per division",x = "Division", y = "Proportion")+
+  geom_text(aes(label = percent), position = position_fill(vjust = 0.5), size = 2)+
+  theme_minimal(base_size=11)+
+  coord_flip()
+
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(partsofday_division)
+
+
+```
+
+Figure 6 depicts the proportion of occurrences documented in each division at various times of the day. In Northwest, 56% of occurrences happened at night. Except for South Central, the rest of the divisions had significantly higher percentage of cases throughout the night compared to other times of the day. In South Central, 39% of occurrences occurred in the evening, 26% in the day, and 25% at night. In comparison to the other divisions, this has an interesting pattern.
+
+$$\\[1in]$$
+
+In addition, it is critical to examine the trends in the police descriptions of the subjects. This is also the supporting information regarding the nature of the offence for which the subjects were accused. Understanding these tendencies may aid in the implementation of appropriate crime-control measures. Figure 7 depicts the various descriptions of the subjects as recorded by Dallas police in 2016. A large fraction of the 2383 subjects, accounting for 412 cases recorded by the police, were mentally disturbed, followed by 382 cases of alcoholism. Furthermore, 318 patients were discovered to be in possession of unknown medicines. Its also worth noting that 297 persons or suspects were not identified using any of these descriptions. A small minority, 61 respondents, were found to be carrying a weapon.
+
+```{r, warning=FALSE, echo=FALSE,message=FALSE}
+
+#The count of different categories of subject description and removal of unnecessary data
+
+df_updated <- df[df$CIT_INFL_A != "NULL", ]
+df_updated<- df_updated[df_updated$CIT_INFL_A != "Unknown"]
+
+#plotting
+descrip_count<-ggplot(df_updated,aes(x = CIT_INFL_A))+
+  geom_bar(fill="#083ee3")+
+  coord_flip()+
+  labs(title="Figure 7: Subject description count",x = "Subject Description", y = "Count")+
+  theme_minimal(base_size=11)
+  
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(descrip_count)
+
+```
+
+$$\\[1in]$$
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+#subject description per day
+#remove values which we are not going to analyze
+df_updated <- df_updated[df_updated$CIT_INFL_A != "None detected"]
+df_updated <- df_updated[df_updated$CIT_INFL_A != "Animal"]
+df_updated <- df_updated[df_updated$CIT_INFL_A != "FD-Unknown if Armed"]
+df_updated <- df_updated[df_updated$CIT_INFL_A != "FD-Animal"]
+df_updated <- df_updated[df_updated$CIT_INFL_A != "FD-Suspect Unarmed"]
+df_updated <- df_updated[df_updated$CIT_INFL_A != "FD-Motor Vehicle"]
+
+#proportion of subject description on different days of the week
+week_descrip <- setDT(df_updated)[,list(count = .N), by = .(CIT_INFL_A, dayOftheWeek)][,list(dayOftheWeek = dayOftheWeek, 
+                                                                                            count = count,
+                                                                                            percent = paste0(formatC(count*100/sum(count), digits = 2), "%"),
+                                                                                            percent_num = count/sum(count)), by = CIT_INFL_A]
+
+#plotting
+week_descrip_plot <- ggplot(week_descrip, aes(x = CIT_INFL_A, y = percent_num, fill = dayOftheWeek))+
+  geom_bar(position = position_fill(), stat = "identity", width = 0.4)+
+  labs(title ="Figure 8: Proportion of subject descriptions on different days", x = "Subject Description", y = "Proportion", fill="Day")+
+  geom_text(aes(label = percent), position = position_fill(vjust = 0.6), size = 3)+
+  theme_minimal(base_size=10)+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(plot.caption = element_text(hjust=0.5, size=rel(1)))+coord_flip()
+
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(week_descrip_plot)
+
+```
+
+Figure 8 depicts an examination of the proportion of distinct subject descriptors on different days of the week. Throughout the week, the police recorded nearly the same number of persons who were mentally unwell and in possession of unknown narcotics and alcohol. However, the percentage of people who have marijuana or a gun is highest on Fridays, at 36% each. Furthermore, on Sundays, 36% of the people or suspects reported by police were found with another weapon. $$\\[1in]$$
+
+```{r,warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+# The proportion of subject descriptions in each division
+division_descrip <- setDT(df_updated)[, .(
+    count = .N
+), by = .(CIT_INFL_A, DIVISION)][, .(
+    DIVISION = DIVISION,
+    count = count,
+    percent = paste0(formatC(count * 100 / sum(count), digits = 2), "%"),
+    percent_num = count / sum(count)
+), by = CIT_INFL_A]
+
+# Plotting
+division_descrip_plot <- ggplot(division_descrip, aes(x = CIT_INFL_A, y = percent_num, fill = DIVISION)) +
+    geom_bar(position = position_fill(), stat = "identity", width = 0.3) +
+    labs(title = "Figure 9: Proportion of subject descriptions in each division",
+         x = "Description", y = "Proportion", fill = "Division") +
+    geom_text(aes(label = percent), position = position_fill(vjust = 0.6), size = 3) +
+    theme_minimal(base_size = 11) +
+    theme(plot.title = element_text(hjust = 0.6)) +
+    theme(plot.caption = element_text(hjust = 0.6, size = rel(1))) +
+    coord_flip()
+
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(division_descrip_plot)
+
+
+```
+
+In addition, analyzing the proportion of subject descriptions in various Dallas divisions. Figure 9 shows that the Central Division has a high number of persons who use alcohol, drugs, or are mentally disturbed. It is worth noting that suspects armed with a gun constituted a disproportionately high percentage (42%) in the Southeast division. It is also worth noting that marijuana was prevalent in both the Northeast and Southeast regions. Furthermore, a large proportion of suspects armed with various weapons were discovered in North Central. $$\\[1in]$$
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+#using map to depict the subject description distribution in each division
+
+subject_descrip_map <- leaflet(df_updated)%>%
+  # the divisions
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite")
+
+subject_descrip_map <- subject_descrip_map %>% 
+  addCircles(data = df_updated[df_updated$CIT_INFL_A=="Alchohol and unknown drugs",],
+             group = "Alchohol and unknown drugs",col="#CC5600") %>%
+  addCircles(data = df_updated[df_updated$CIT_INFL_A=="Mentally unstable",],
+             group = "Mentally unstable",col="#32CD32") %>%
+  addCircles(data = df_updated[df_updated$CIT_INFL_A=="Marijuana",],
+             group = "Marijuana",col="#CD853F") %>%
+  addCircles(data = df_updated[df_updated$CIT_INFL_A=="FD-Suspect w/ Gun",],
+             group = "FD-Suspect w/ Gun",col="#3969c2")
+
+subject_descrip_map <- subject_descrip_map %>% addLayersControl(
+  baseGroups = c("Toner Lite","OSM (default)"),
+  overlayGroups = c("Marijuana", "Alchohol/Unknown drugs","FD-Suspect w/ Gun", "Mentally unstable"),
+  options = layersControlOptions(collapsed = FALSE))
+
+subject_descrip_map
+
+```
+
+The above map displays the distribution of subject descriptions across the city's divisions. The map only shows four subject descriptions. It is obvious that the city has a low amount of marijuana and firearms suspects. Subjects who are mentally ill and have alcohol and unknown drugs, on the other hand, are much higher throughout the city.
+
+$$\\[1in]$$
+
+Then, analyzing the proportion of subject descriptions in Dallas at various times of the day. According to figure 10, there was a considerably higher number of subjects with alcohol and marijuana at night, at 70% and 60%, respectively. During the night, 58% of the subjects tested positive for alcohol and unknown substances. Furthermore, among the reported cases, unknown drugs were high in the afternoon. It's also worth noting that persons with guns were reported equally throughout the day.
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+
+# The proportion of subject description on each parts of the day
+partsofday_descrip <- setDT(df_updated)[, .(count = .N), by = .(CIT_INFL_A, Partsofday)][, .(Partsofday = Partsofday, 
+                                                                                                 count = count,
+                                                                                                 percent = paste0(formatC(count * 100 / sum(count), digits = 2), "%"),
+                                                                                                 percent_num = count / sum(count)), by = CIT_INFL_A]
+
+# Plot
+partsofday_descrip_plot <- ggplot(partsofday_descrip, aes(x = CIT_INFL_A, y = percent_num, fill = Partsofday)) +
+  geom_bar(position = position_fill(), stat = "identity", width = 0.5) +
+  labs(title = "Figure 10: Proportion of subject description during each parts of the day", x = "Subject Description", y = "The Proportion", fill = "The parts of the day") +
+  geom_text(aes(label = percent), position = position_fill(vjust = 0.6), size = 3) +
+  theme_minimal(base_size = 10) +
+  coord_flip()
+
+# Convert the output to an interactive plot using ggplotly
+ggplotly(partsofday_descrip_plot)
+
+
+```
+
+$$\\[1in]$$
+
+Figure 11 below shows that the number of offenders or persons apprehended was much higher for the Black race, accounting for 1144 out of 2048. This means that 55.8% of those arrested for committing an offence in Dallas were of the Black race. In comparison, 22% of Hispanics and 20.2% of Whites have been arrested. There were many arrests of Asian and American Indian people.
+
+```{r ,warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+# The distribution of arrested subjects based on race
+# Then, let's drop the rows with race value "NULL" i.e N/A
+df_race_updated <- df[df$CitRace != "NULL", ]
+# The fraction of different races among the offenders or arrested
+df_race_updated <- df_race_updated[df_race_updated$CIT_ARREST != "No", ]
+
+# Counting of subjects based on race
+race_counter <- df_race_updated %>% ggplot(aes(x = CitRace)) + 
+  geom_bar(fill = "#446cc9") + 
+  labs(title = "Figure 11: Count of subjects per race", x = "Race", 
+       y = "Count of Subjects") +   
+  theme_minimal() +
+  coord_flip()
+
+# Then, using ggplotly to convert the output to an interactive plot
+ggplotly(race_counter)
+
+```
+
+$$\\[1in]$$
+
+Furthermore, we can examine the racial distribution of persons apprehended for a crime in different divisions of Dallas. This is depicted in the map below.
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+library(leaflet)
+
+# Checking the distribution of race of the subjects who were arrested, belonging to different divisions 
+
+map <- leaflet(df_race_updated) %>%
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite")
+
+map_race <- map %>% 
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "White",], 
+             group = "White", col = "#478927") %>%
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "Other",], 
+             group = "Other", col = "#ee6700") %>%
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "Hispanic",], 
+             group = "Hispanic", col = "#dc983F") %>%
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "Black",], 
+             group = "Black", col = "#7669E1") %>%
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "Asian",], 
+             group = "Asian", col = "#86dc92") %>%
+  addCircles(data = df_race_updated[df_race_updated$CitRace == "American Ind",], 
+             group = "American Ind", col = "#98ac80")
+
+# Layers control 
+race_map <- map_race %>% 
+  addLayersControl(baseGroups = c("Toner Lite", "OSM (default)"), 
+                   overlayGroups = c("White", "Other", "Hispanic", "Black", "Asian", "American Ind"), 
+                   options = layersControlOptions(collapsed = FALSE))
+
+race_map
+
+```
+
+Figure 12 aids in comprehending the proportion of racial distributions across different divisions. According to the map, the distribution of Blacks in Dallas' South Central division is extremely high, at 86%. Furthermore, more than half of those detained in the South East, Central, and Northeast are Black. It is worth noting that white offenders account for 40% of all offenders in North Central. Both the Southwest and Northwest divisions had a larger percentage of Hispanic offenders than any other race within the division, at 44% and 37%, respectively. These are also the divisions with the highest proportion of Hispanic offenders in contrast to other divisions.
+
+```{r, warning=FALSE, fig.height=5, fig.width=9, echo=FALSE,message=FALSE}
+
+
+library(data.table)
+library(ggplot2)
+library(plotly)
+
+#The racial proportions of subjects arrested in each division
+race_div <- setDT(df_race_updated)[, list(count = .N),
+                                   by = .(DIVISION, CitRace)][, list(CitRace = CitRace, 
+                                                                   count = count,
+                                                                   percent = paste0(formatC(count*100/sum(count), digits = 2), "%"),
+                                                                   percent_num = count/sum(count)),
+                                                             by = DIVISION]
+
+race_div_plot <- ggplot(race_div, aes(x = DIVISION, y = percent_num, fill = CitRace)) +
+  geom_bar(position = position_fill(), stat = "identity", width = 0.5) +
+  labs(title = "Figure 12: Racial proportion of offenders per division", x = "Division", y = "Proportion", fill = "Race") +
+  geom_text(aes(label = percent), position = position_fill(vjust = 0.6), size = 3) +
+  theme_minimal(base_size = 10) +
+  coord_flip()
+
+#then, using ggplotly to convert the output to an interactive plot
+ggplotly(race_div_plot)
+
+```
+
+### OBSERVATIONS
+
+Several intriguing patterns in crime and police in Dallas in 2016 were discovered as a result of the above analysis. The number of incidences was observed to be highest on Sundays and Saturdays, and lowest on Mondays. Furthermore, the rate of events increased significantly from morning to night. Furthermore, the majority of the subjects were mentally ill and used alcohol and drugs, and they were discovered practically every day of the week in the same fractions.
+
+Analyses of the city's various divisions revealed that the number of occurrences documented by the police was highest in Central and lowest in Northwest. Furthermore, Central had the highest number of events involving alcohol and unknown drugs, while Southeast had a higher proportion of persons armed with firearms. Furthermore, all divisions had a significant number of incidents at night, with the exception of South Central, which had the fewest incidents at night and the most in the evening. Furthermore, several divisions contained Black criminals, while North Central had more White offenders. In the Southwest and Northwest divisions, a higher proportion of Hispanics committed offences and were arrested.
+
+### CONCLUSION
+
+The police force faces a difficult task in dealing with the rising crime rate. Understanding the patterns in how offences are committed will aid in addressing this issue. The analyses' patterns clearly emphasise the varied facts regarding the incidences reported in the city. These patterns will provide additional information to the police in order for them to carry out specialised operations based on the divisions, days, and parts of the day with a high percentage of criminal incidences. We learned through this analysis that crime rates were higher in the Central Division on Sundays and at night. Furthermore, the city had more subjects who were mentally disturbed and had alcohol and narcotics. Furthermore, as shown in the preceding data, criminal profiling based on race in each division may assist control the number of offences.
+
+## References
+
+[1] <https://r4ds.had.co.nz/r-markdown.html>
+
+[2] <https://posit.co/wp-content/uploads/2022/10/rmarkdown-1.pdf>
+
+[3] <https://posit.co/resources/cheatsheets/>
